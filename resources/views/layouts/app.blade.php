@@ -1,134 +1,116 @@
+@php
+    $appName = \App\Models\AppSetting::getValue('app_name', 'TodoFlow');
+    $themeColor = \App\Models\AppSetting::getValue('theme_color', '#7e57c2');
+    $supportEmail = \App\Models\AppSetting::getValue('support_email', '');
+    $brandLetters = strtoupper(substr($appName, 0, 1) . substr(str_replace(' ', '', $appName), 1, 1));
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config('app.name', 'TaskFlow') }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="{{ $themeColor }}">
+    <title>{{ $title ?? $appName }}</title>
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
+<body data-flash="{{ session('success') }}">
+<div class="loader-overlay" id="appLoader">
+    <div class="loader-card">
+        <div class="loader-logo">{{ $brandLetters }}</div>
+        <div class="loader-title">Loading</div>
+        <div class="loader-copy">Preparing your next task screen...</div>
+    </div>
+</div>
+
+<div class="toast-wrap">
+    <div class="toast-card" id="appToast">
+        <div id="appToastText">Done</div>
+    </div>
+</div>
+
 <div class="app-shell">
-    @auth
-        <aside class="sidebar d-none d-lg-flex flex-column">
-            <div class="brand-box">
-                <div class="brand-icon">TF</div>
-                <div class="brand-text">
-                    <h4>TaskFlow</h4>
-                    <small>Smart task workspace</small>
-                </div>
-            </div>
-
-            <div class="nav-section-title">Workspace</div>
-            <nav class="nav flex-column">
-                <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                    Dashboard
-                </a>
-                <a href="{{ route('todos.index') }}" class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}">
-                    My Todos
-                </a>
-                <a href="{{ route('todos.create') }}" class="nav-link {{ request()->routeIs('todos.create') ? 'active' : '' }}">
-                    Add New Task
-                </a>
-            </nav>
-
-            <div class="nav-section-title">Account</div>
-            <nav class="nav flex-column">
-                <a href="{{ route('profile.edit') }}" class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}">
-                    Profile Settings
-                </a>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="nav-link text-start w-100 border-0 bg-transparent">
-                        Logout
-                    </button>
-                </form>
-            </nav>
-        </aside>
-
-        <div class="offcanvas offcanvas-start mobile-drawer" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
-            <div class="offcanvas-header border-bottom">
-                <div class="brand-box mb-0">
-                    <div class="brand-icon">TF</div>
-                    <div class="brand-text">
-                        <h4 id="mobileSidebarLabel">TaskFlow</h4>
-                        <small>Smart task workspace</small>
+    <div class="app-topbar">
+        <div class="app-container">
+            <div class="app-topbar-row">
+                <div class="brand-block">
+                    <div class="brand-logo">{{ $brandLetters }}</div>
+                    <div class="brand-copy">
+                        <h1>{{ $appName }}</h1>
+                        <p>Smart mobile task workspace</p>
                     </div>
                 </div>
-                <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                <div class="topbar-actions">
+                    @auth
+                        @if(auth()->user()->hasPermissionTo('admin.dashboard.view'))
+                            <a href="{{ route('admin.dashboard') }}" class="icon-circle" aria-label="Admin"><i class="bi bi-speedometer2"></i></a>
+                        @endif
+                        <a href="{{ route('notifications.index') }}" class="icon-circle icon-circle-badge-wrap" aria-label="Notifications">
+                            <i class="bi bi-bell"></i>
+                            @php($unreadCount = auth()->user()->unreadNotificationsCount())
+                            @if($unreadCount > 0)
+                                <span class="icon-badge">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                            @endif
+                        </a>
+                        <a href="{{ route('profile.edit') }}" class="profile-chip" aria-label="Profile">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</a>
+                    @else
+                        <a href="{{ route('login') }}" class="icon-circle" aria-label="Login"><i class="bi bi-arrow-right"></i></a>
+                    @endauth
+                </div>
             </div>
 
-            <div class="offcanvas-body">
-                <div class="nav-section-title">Workspace</div>
-                <nav class="nav flex-column">
-                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                        Dashboard
-                    </a>
-                    <a href="{{ route('todos.index') }}" class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}">
-                        My Todos
-                    </a>
-                    <a href="{{ route('todos.create') }}" class="nav-link {{ request()->routeIs('todos.create') ? 'active' : '' }}">
-                        Add New Task
-                    </a>
-                </nav>
+            <div class="page-header">
+                <h2 class="page-title">@yield('page_title', 'Workspace')</h2>
+                <p class="page-subtitle">@yield('page_subtitle', 'Stay focused and move tasks faster.')</p>
+                @if($supportEmail)
+                    <p class="section-caption mt-1 mb-0">Support: {{ $supportEmail }}</p>
+                @endif
+            </div>
 
-                <div class="nav-section-title">Account</div>
-                <nav class="nav flex-column">
-                    <a href="{{ route('profile.edit') }}" class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}">
-                        Profile Settings
-                    </a>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="nav-link text-start w-100 border-0 bg-transparent">
-                            Logout
-                        </button>
-                    </form>
-                </nav>
+            <div class="offline-banner" id="offlineBanner">
+                <i class="bi bi-wifi-off me-2"></i>No internet connection. Your last loaded screen stays available. Some actions will sync when you reconnect.
             </div>
         </div>
-    @endauth
+    </div>
 
-    <main class="main-content">
-        @auth
-            <div class="topbar">
-                <div class="d-flex justify-content-between align-items-start align-items-sm-center flex-column flex-sm-row gap-3">
-                    <div class="d-flex align-items-start gap-3 w-100">
-                        <button
-                            class="btn btn-light-custom mobile-menu-btn d-lg-none"
-                            type="button"
-                            data-bs-toggle="offcanvas"
-                            data-bs-target="#mobileSidebar"
-                            aria-controls="mobileSidebar"
-                        >
-                            ☰
-                        </button>
-
-                        <div class="flex-grow-1">
-                            <h1 class="page-title mb-1">@yield('page_title', 'Welcome Back')</h1>
-                            <p class="page-subtitle mb-0">@yield('page_subtitle', 'Manage your work with clarity and focus.')</p>
-                        </div>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-2 gap-sm-3 topbar-user">
-                        <div class="text-end d-none d-sm-block">
-                            <div class="fw-semibold">{{ auth()->user()->name }}</div>
-                            <small class="text-muted">{{ auth()->user()->email }}</small>
-                        </div>
-                        <div class="profile-avatar topbar-avatar">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endauth
-
-        @if(session('success'))
-            <div class="alert alert-success border-0 shadow-sm rounded-4 app-alert">
-                {{ session('success') }}
-            </div>
-        @endif
-
+    <div class="app-container">
         @yield('content')
-    </main>
+    </div>
 </div>
+
+@auth
+<nav class="bottom-nav">
+    <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
+        <span class="nav-ico"><i class="bi bi-house-door"></i></span>
+        <span>Home</span>
+    </a>
+    <a href="{{ route('todos.index') }}" class="{{ request()->routeIs('todos.index') || request()->routeIs('todos.show') || request()->routeIs('todos.edit') ? 'active' : '' }}">
+        <span class="nav-ico"><i class="bi bi-check2-square"></i></span>
+        <span>Tasks</span>
+    </a>
+    <a href="{{ route('todos.create') }}" class="{{ request()->routeIs('todos.create') ? 'active' : '' }}">
+        <span class="nav-ico"><i class="bi bi-plus-circle-fill"></i></span>
+        <span>Add</span>
+    </a>
+    <a href="{{ route('calendar.index') }}" class="{{ request()->routeIs('calendar.*') ? 'active' : '' }}">
+        <span class="nav-ico"><i class="bi bi-calendar3"></i></span>
+        <span>Calendar</span>
+    </a>
+    <a href="{{ route('profile.edit') }}" class="{{ request()->routeIs('profile.*') ? 'active' : '' }}">
+        <span class="nav-ico"><i class="bi bi-person-circle"></i></span>
+        <span>Profile</span>
+    </a>
+</nav>
+@endauth
+
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+}
+</script>
 </body>
 </html>

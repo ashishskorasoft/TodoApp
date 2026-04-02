@@ -1,131 +1,119 @@
-@extends('layouts.app')
+@extends('layouts.app', ['title' => 'Tasks | TodoFlow'])
 
-@section('page_title', 'My Tasks')
-@section('page_subtitle', 'Track, filter and manage all your work in one place.')
+@section('page_title', 'Tasks')
+@section('page_subtitle', 'Recurring, tagged, and reminder-ready tasks in one fast mobile flow.')
 
 @section('content')
-<div class="row g-4 mb-4">
-    <div class="col-md-4">
-        <div class="app-card stat-card">
-            <div class="stat-label">Total Tasks</div>
-            <h3 class="stat-value">{{ $stats['total'] }}</h3>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="app-card stat-card">
-            <div class="stat-label">Pending</div>
-            <h3 class="stat-value">{{ $stats['pending'] }}</h3>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="app-card stat-card">
-            <div class="stat-label">Completed</div>
-            <h3 class="stat-value">{{ $stats['completed'] }}</h3>
-        </div>
-    </div>
+<div class="filter-tabs section-space">
+    @php $currentView = request('view', 'all'); @endphp
+    @foreach(['all' => 'All', 'today' => 'Today', 'upcoming' => 'Upcoming', 'overdue' => 'Overdue'] as $key => $label)
+        <a href="{{ route('todos.index', array_merge(request()->except('page'), $key === 'all' ? ['view' => null] : ['view' => $key])) }}" class="filter-tab {{ $currentView === $key ? 'active' : '' }}">{{ $label }}</a>
+    @endforeach
+</div>
+<div class="filter-tabs section-space" style="grid-template-columns: repeat(2,1fr);">
+    @foreach(['completed' => 'Completed', 'archived' => 'Archived'] as $key => $label)
+        <a href="{{ route('todos.index', array_merge(request()->except('page'), ['view' => $key])) }}" class="filter-tab {{ $currentView === $key ? 'active' : '' }}">{{ $label }}</a>
+    @endforeach
 </div>
 
-<div class="app-card section-card mb-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-        <div>
-            <div class="section-title">Task Filters</div>
-            <div class="section-subtitle">Search and organize your tasks quickly.</div>
-        </div>
-        <a href="{{ route('todos.create') }}" class="btn btn-primary">+ New Task</a>
-    </div>
-
-    <form method="GET" action="{{ route('todos.index') }}">
-        <div class="row g-3">
-            <div class="col-lg-4">
-                <input
-                    type="text"
-                    name="search"
-                    class="form-control"
-                    placeholder="Search by title..."
-                    value="{{ request('search') }}"
-                >
+<div class="app-card section-card section-space">
+    <form method="GET">
+        <div class="app-form">
+            <div class="form-group">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" value="{{ request('search') }}" class="form-control" placeholder="Search task title or notes">
             </div>
-
-            <div class="col-lg-3">
-                <select name="status" class="form-select">
-                    <option value="">All Status</option>
-                    <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
-                </select>
+            <div class="inline-fields">
+                <div class="form-group">
+                    <label class="form-label">Priority</label>
+                    <select name="priority" class="form-select">
+                        <option value="">All priorities</option>
+                        <option value="low" @selected(request('priority')==='low')>Low</option>
+                        <option value="medium" @selected(request('priority')==='medium')>Medium</option>
+                        <option value="high" @selected(request('priority')==='high')>High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sort</label>
+                    <select name="sort" class="form-select">
+                        <option value="latest" @selected(request('sort')==='latest')>Latest</option>
+                        <option value="due_at" @selected(request('sort')==='due_at')>Due date</option>
+                        <option value="oldest" @selected(request('sort')==='oldest')>Oldest</option>
+                    </select>
+                </div>
             </div>
-
-            <div class="col-lg-3">
-                <select name="sort" class="form-select">
-                    <option value="latest" {{ request('sort') === 'latest' ? 'selected' : '' }}>Latest</option>
-                    <option value="oldest" {{ request('sort') === 'oldest' ? 'selected' : '' }}>Oldest</option>
-                    <option value="due_date" {{ request('sort') === 'due_date' ? 'selected' : '' }}>Due Date</option>
-                </select>
-            </div>
-
-            <div class="col-lg-2 d-grid">
-                <button class="btn btn-accent">Apply</button>
+            @if($tags->count())
+                <div class="task-chips mt-2">
+                    @foreach($tags as $tag)
+                        <a href="{{ route('todos.index', array_merge(request()->except('page'), ['tag' => $tag])) }}" class="chip chip-tag">{{ $tag }}</a>
+                    @endforeach
+                </div>
+            @endif
+            <div class="app-toolbar mt-3">
+                <button class="btn btn-primary">Apply</button>
+                <a href="{{ route('todos.index') }}" class="btn btn-soft">Reset</a>
             </div>
         </div>
     </form>
 </div>
 
-<div class="app-card table-card">
-    @if($todos->count())
-        <div class="table-responsive">
-            <table class="table mb-0">
-                <thead>
-                <tr>
-                    <th>Task</th>
-                    <th>Status</th>
-                    <th>Due Date</th>
-                    <th>Created</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach($todos as $todo)
-                    <tr>
-                        <td>
-                            <div class="todo-title">{{ $todo->title }}</div>
-                            <div class="todo-meta">
-                                {{ $todo->description ? \Illuminate\Support\Str::limit($todo->description, 70) : 'No description added' }}
-                            </div>
-                        </td>
-                        <td>
-                            <span class="badge-status {{ $todo->status === 'completed' ? 'badge-completed' : 'badge-pending' }}">
-                                {{ ucfirst($todo->status) }}
-                            </span>
-                        </td>
-                        <td>{{ $todo->due_date ? $todo->due_date->format('d M Y') : 'N/A' }}</td>
-                        <td>{{ $todo->created_at->format('d M Y') }}</td>
-  
-</td><td class="text-end">
-    <div class="d-flex justify-content-end flex-wrap gap-2">
-        <a href="{{ route('todos.show', $todo) }}" class="btn btn-light-custom btn-sm">View</a>
-        <a href="{{ route('todos.edit', $todo) }}" class="btn btn-accent btn-sm">Edit</a>
-        <form action="{{ route('todos.destroy', $todo) }}" method="POST" onsubmit="return confirm('Delete this task?')" class="m-0">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-        </form>
-    </div>
-</td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
+<form action="{{ route('todos.bulk-update') }}" method="POST" data-loader="true">
+    @csrf
+    <div class="app-card section-card section-space">
+        <div class="section-header">
+            <div>
+                <h3 class="section-title">Task List</h3>
+                <p class="section-caption">Fast mobile task cards with bulk actions and quick status handling.</p>
+            </div>
+        </div>
+        <div class="inline-fields mb-3">
+            <div class="form-group mb-0">
+                <label class="form-label">Bulk Action</label>
+                <select name="bulk_action" class="form-select">
+                    <option value="complete">Mark completed</option>
+                    <option value="archive">Archive</option>
+                    <option value="restore">Restore</option>
+                    <option value="delete">Delete</option>
+                </select>
+            </div>
+            <div class="form-group mb-0 d-flex align-items-end">
+                <button class="btn btn-soft w-100">Apply Selected</button>
+            </div>
         </div>
 
-        <div class="p-3">
-            {{ $todos->links() }}
+        <div class="task-stack">
+            @forelse($tasks as $task)
+                <div class="app-card" style="overflow:hidden;">
+                    <div class="task-card">
+                        <label class="select-box"><input type="checkbox" name="selected[]" value="{{ $task->id }}"></label>
+                        <a href="{{ route('todos.show', $task) }}" class="task-card-link" style="display:block; min-width:0;">
+                            <div class="task-content">
+                                <div class="task-title-row"><h4 class="task-title">{{ $task->title }}</h4></div>
+                                <p class="task-time">{{ $task->due_at ? $task->due_at->format('d M, h:i A') : 'No due date' }}</p>
+                                <div class="task-chips">
+                                    <span class="chip chip-{{ $task->priority }}">{{ ucfirst($task->priority) }}</span>
+                                    <span class="chip {{ $task->is_overdue ? 'chip-overdue' : 'chip-'.$task->status }}">{{ $task->is_overdue ? 'Overdue' : ucfirst($task->status) }}</span>
+                                    @if($task->has_recurrence)<span class="chip chip-tag">{{ ucfirst($task->repeat_type) }}</span>@endif
+                                    @if($task->subtasks_total)<span class="chip chip-tag">{{ $task->subtasks_done }}/{{ $task->subtasks_total }} subtasks</span>@endif
+                                    @foreach(array_slice((array) $task->labels, 0, 2) as $label)<span class="chip chip-tag">{{ $label }}</span>@endforeach
+                                </div>
+                            </div>
+                        </a>
+                        <div class="d-flex flex-column gap-2 align-items-end">
+                            <button type="button" class="btn btn-soft" data-task-toggle data-url="{{ route('todos.quick-toggle', $task) }}" style="min-height:auto; padding:8px 10px;">Toggle</button>
+                            <span class="chevron">›</span>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="empty-state">
+                    <div class="empty-icon">+</div>
+                    <h4 class="empty-title">No tasks found</h4>
+                    <p class="empty-copy">Try another view or create a new task.</p>
+                </div>
+            @endforelse
         </div>
-    @else
-        <div class="empty-state">
-            <div class="empty-icon">+</div>
-            <h4>No tasks found</h4>
-            <p class="text-muted">Try changing filters or create a new task.</p>
-            <a href="{{ route('todos.create') }}" class="btn btn-primary">Create Task</a>
-        </div>
-    @endif
-</div>
+        <div class="pt-3">{{ $tasks->links() }}</div>
+    </div>
+</form>
 @endsection
